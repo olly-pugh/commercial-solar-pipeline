@@ -1,0 +1,194 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Commercial building archetypes — energy demand & PV economics drivers.
+#
+# elec_intensity_kwh_m2_yr : electricity-only intensity (NOT total energy).
+#   Sources: CIBSE TM46 / DEC benchmarks, DESNZ Building Energy Efficiency Survey
+#   (BEES), typical non-domestic electricity benchmarks. INDICATIVE.
+# self_consumption : share of PV generation consumed on-site (daytime-load match).
+#   Commercial economics hinge on self-consumption (avoided import >> export).
+# roof_type : default mounting model for the roof/economics agents (flat|pitched|mixed).
+# esg_pressure_0_10 : sector regulatory/reputational pressure (SECR, net-zero, MEES).
+# energy_intensity_class / esg_pressure_class : ordinal labels for propensity scoring.
+# typical_storeys : default when height data missing (floor area = footprint × storeys).
+# Review date: 2026-06.
+# ─────────────────────────────────────────────────────────────────────────────
+
+archetypes:
+
+  warehouse_logistics:
+    label: "Warehouse / distribution / logistics"
+    elec_intensity_kwh_m2_yr: 45
+    self_consumption: 0.70
+    roof_type: flat
+    esg_pressure_0_10: 7.0
+    energy_intensity_class: medium
+    esg_pressure_class: high
+    typical_storeys: 1
+
+  cold_storage:
+    label: "Cold storage / refrigerated logistics"
+    elec_intensity_kwh_m2_yr: 220
+    self_consumption: 0.90
+    roof_type: flat
+    esg_pressure_0_10: 7.5
+    energy_intensity_class: very_high
+    esg_pressure_class: high
+    typical_storeys: 1
+
+  manufacturing_industrial:
+    label: "Manufacturing / light industrial"
+    elec_intensity_kwh_m2_yr: 130
+    self_consumption: 0.80
+    roof_type: flat
+    esg_pressure_0_10: 6.5
+    energy_intensity_class: high
+    esg_pressure_class: medium_high
+    typical_storeys: 1
+
+  retail_shed:
+    label: "Retail warehouse / big-box / retail park unit"
+    elec_intensity_kwh_m2_yr: 110
+    self_consumption: 0.80
+    roof_type: flat
+    esg_pressure_0_10: 6.5
+    energy_intensity_class: high
+    esg_pressure_class: medium_high
+    typical_storeys: 1
+
+  supermarket_food:
+    label: "Supermarket / food retail"
+    elec_intensity_kwh_m2_yr: 320
+    self_consumption: 0.88
+    roof_type: flat
+    esg_pressure_0_10: 8.0
+    energy_intensity_class: very_high
+    esg_pressure_class: high
+    typical_storeys: 1
+
+  office:
+    label: "Office"
+    elec_intensity_kwh_m2_yr: 75
+    self_consumption: 0.62
+    roof_type: mixed
+    esg_pressure_0_10: 6.0
+    energy_intensity_class: medium
+    esg_pressure_class: medium
+    typical_storeys: 3
+
+  retail_highstreet:
+    label: "High-street / small retail unit"
+    elec_intensity_kwh_m2_yr: 95
+    self_consumption: 0.78
+    roof_type: mixed
+    esg_pressure_0_10: 5.0
+    energy_intensity_class: medium
+    esg_pressure_class: medium
+    typical_storeys: 2
+
+  school:
+    label: "School"
+    elec_intensity_kwh_m2_yr: 35
+    self_consumption: 0.50    # summer-holiday mismatch with peak generation
+    roof_type: mixed
+    esg_pressure_0_10: 7.5    # public-sector net-zero estate duty
+    energy_intensity_class: low
+    esg_pressure_class: high
+    typical_storeys: 2
+
+  university_higher_ed:
+    label: "University / higher / further education"
+    elec_intensity_kwh_m2_yr: 90
+    self_consumption: 0.70
+    roof_type: mixed
+    esg_pressure_0_10: 8.0
+    energy_intensity_class: medium
+    esg_pressure_class: high
+    typical_storeys: 3
+
+  leisure_gym:
+    label: "Leisure centre / gym / sports"
+    elec_intensity_kwh_m2_yr: 120
+    self_consumption: 0.68
+    roof_type: mixed
+    esg_pressure_0_10: 6.0
+    energy_intensity_class: high
+    esg_pressure_class: medium
+    typical_storeys: 1
+
+  public_sector:
+    label: "Public-sector / civic building"
+    elec_intensity_kwh_m2_yr: 70
+    self_consumption: 0.62
+    roof_type: mixed
+    esg_pressure_0_10: 8.0
+    energy_intensity_class: medium
+    esg_pressure_class: high
+    typical_storeys: 3
+
+  mixed_commercial:
+    label: "Mixed-use commercial"
+    elec_intensity_kwh_m2_yr: 85
+    self_consumption: 0.65
+    roof_type: mixed
+    esg_pressure_0_10: 5.5
+    energy_intensity_class: medium
+    esg_pressure_class: medium
+    typical_storeys: 3
+
+  generic_commercial:
+    label: "Unclassified non-domestic (generic, conservative)"
+    elec_intensity_kwh_m2_yr: 80
+    self_consumption: 0.62
+    roof_type: flat
+    esg_pressure_0_10: 5.0
+    energy_intensity_class: medium
+    esg_pressure_class: medium
+    typical_storeys: 1
+
+# ── Geometry-based PROVISIONAL category detection ────────────────────────────
+# When non-domestic EPC / VOA / Companies House are unavailable, the discovery
+# agent assigns a provisional archetype from footprint area (m2) + ridge height (m).
+# These rules are HEURISTIC and produce low category-confidence; they are refined
+# by EPC property-type / VOA description / SIC code when those sources are present.
+# Rules evaluated top-to-bottom; first match wins.
+geometry_rules:
+  - {min_area_m2: 3000, max_height_m: 18,  min_height_m: 4,  archetype: warehouse_logistics, category_confidence: 0.45}
+  - {min_area_m2: 1200, max_height_m: 14,  min_height_m: 4,  archetype: retail_shed,          category_confidence: 0.40}
+  - {min_area_m2: 600,  max_height_m: 16,  min_height_m: 4,  archetype: manufacturing_industrial, category_confidence: 0.38}
+  - {min_area_m2: 400,  max_height_m: 60,  min_height_m: 9,  archetype: office,                category_confidence: 0.40}
+  - {min_area_m2: 250,  max_height_m: 12,  min_height_m: 2.5, archetype: mixed_commercial,     category_confidence: 0.30}
+  # fallback if nothing matches but building passed the commercial filter:
+  - {min_area_m2: 0,    max_height_m: 999, min_height_m: 0,  archetype: generic_commercial,    category_confidence: 0.20}
+
+# ── Refinement: map non-domestic EPC property-type / VOA keywords → archetype ─
+# Applied (higher confidence) when those text fields are available.
+keyword_to_archetype:
+  warehouse: warehouse_logistics
+  storage: warehouse_logistics
+  distribution: warehouse_logistics
+  logistics: warehouse_logistics
+  cold store: cold_storage
+  factory: manufacturing_industrial
+  workshop: manufacturing_industrial
+  industrial: manufacturing_industrial
+  works: manufacturing_industrial
+  retail warehouse: retail_shed
+  superstore: supermarket_food
+  supermarket: supermarket_food
+  food store: supermarket_food
+  shop: retail_highstreet
+  retail: retail_highstreet
+  office: office
+  school: school
+  college: university_higher_ed
+  university: university_higher_ed
+  academy: school
+  leisure: leisure_gym
+  gym: leisure_gym
+  sports: leisure_gym
+  surgery: public_sector
+  clinic: public_sector
+  library: public_sector
+  council: public_sector
+  civic: public_sector
+  fire station: public_sector

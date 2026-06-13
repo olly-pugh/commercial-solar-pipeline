@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.py[cod]
+*.pyo
+.DS_Store
+data/
+runs/
+reports/
+logs/
+*.duckdb
+*.parquet
+*.db
+node_modules/

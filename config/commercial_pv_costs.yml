@@ -1,0 +1,68 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Commercial rooftop PV cost & performance assumptions.
+# INDICATIVE planning bands for lead prioritisation — not quotations.
+# Sources: Solar Energy UK / STA commercial cost benchmarks 2024-2026,
+# UK Warehousing Association rooftop solar guidance, MCS installation data ranges.
+# Review date: 2026-06.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Installed CAPEX (£/kWp) by system size band. Economies of scale: larger = cheaper per kWp.
+# low/central/high give an installed-cost range per band (turnkey, ex-VAT).
+capex_gbp_per_kwp:
+  # band_max_kwp is the upper bound (inclusive) of the band.
+  - {band_max_kwp: 50,     low: 1100, central: 1300, high: 1550}   # 30-50 kWp micro/small
+  - {band_max_kwp: 100,    low: 950,  central: 1150, high: 1350}   # 50-100 kWp small
+  - {band_max_kwp: 250,    low: 800,  central: 1000, high: 1200}   # 100-250 kWp medium
+  - {band_max_kwp: 1000,   low: 650,  central: 850,  high: 1050}   # 250-1000 kWp large
+  - {band_max_kwp: 1000000,low: 550,  central: 750,  high: 950}    # >1000 kWp very large
+
+# Annual O&M as % of CAPEX (insurance, monitoring, cleaning, inverter reserve).
+opex_pct_of_capex_per_year: 0.012
+
+# Roof packing — how much usable roof area one kWp needs (m2/kWp), incl. row spacing.
+# Flat commercial roofs need MORE area per kWp (tilt + inter-row shading) than pitched.
+m2_per_kwp:
+  flat:     9.5    # ballasted/tilted on flat warehouse/retail roof (incl. spacing)
+  pitched:  6.0    # in-plane mount on pitched roof
+# Plausibility bounds enforced by QA (kWp per m2 of usable area):
+m2_per_kwp_min: 5.0
+m2_per_kwp_max: 12.0
+
+# Specific yield fallback (kWh per kWp per year) when PVGIS not fetched.
+# Southern/central England, mixed-orientation commercial roof, ~10-15° flat-roof tilt.
+# Source: PVGIS climatology for Oxford (~51.75N), system losses 14%.
+specific_yield_kwh_per_kwp:
+  default:        950
+  flat_roof:      900    # lower per-kWp on flat (tilt/orientation compromise)
+  pitched_south:  1000
+  pitched_eastwest: 880
+specific_yield_min: 700
+specific_yield_max: 1150
+
+# System lifetime & degradation (for context / optional NPV).
+system_life_years: 25
+annual_degradation_pct: 0.005
+
+# Usable fraction of total roof area after setbacks, rooflights, plant, HVAC,
+# fire-access walkways and structural keep-outs. Flat commercial roofs lose more
+# plan area to inter-row spacing+plant; pitched roofs lose to non-suitable planes.
+# Source: commercial rooftop PV layout practice; conservative planning values.
+usable_fraction:
+  flat:    0.60
+  pitched: 0.50
+  mixed:   0.55
+# Assumed roof pitch (degrees) when LiDAR is unavailable.
+assumed_pitch_deg:
+  flat:    3
+  pitched: 25
+  mixed:   12
+# Large-footprint buildings (warehouses, retail sheds, hospitals, industrial,
+# institutional) are overwhelmingly flat-roofed in the UK. Above this footprint
+# we model a flat roof regardless of category, avoiding implausible pitched-area
+# inflation on big buildings.
+large_footprint_flat_m2: 2500
+
+# Self-consumption is the key commercial economics lever (avoided import >> export).
+# Modelled per archetype in commercial_archetypes.yml; these are global guards.
+self_consumption_min: 0.10
+self_consumption_max: 0.95

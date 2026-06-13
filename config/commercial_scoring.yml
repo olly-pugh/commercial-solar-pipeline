@@ -1,0 +1,117 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Commercial lead scoring model — all tunable parameters in one auditable place.
+# Every number here is referenced from docs/commercial_solar_methodology.md.
+# Nothing in the scoring code is a hidden magic number.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Final score weights (sum = 1.0). Out-of-10 final score. ──────────────────
+# Justification + evidence strength per variable: see methodology evidence table.
+weights:
+  technical:            0.25   # roof suitability (B: strong technical evidence)
+  economics:            0.25   # bill-savings economics (B)
+  project_scale:        0.15   # usable-roof-area / feasible kWp opportunity size (A/B)
+  adoption_propensity:  0.15   # business/sector propensity (C: transferable + A where SIC)
+  decision_feasibility: 0.08   # owner/tenant actionability (A/C)
+  policy_compliance:    0.07   # EPC/MEES/ESG pressure (B/C)
+  market_momentum:      0.05   # local peer adoption (C/D — deliberately small)
+
+# Per-ranking-mode multiplicative emphasis on sub-scores (re-normalised at runtime).
+# 'balanced' uses the base weights unchanged.
+ranking_modes:
+  balanced:            {}
+  large-project-first: {project_scale: 2.2, economics: 1.1}
+  fastest-payback:     {economics: 2.0, technical: 1.2}
+  highest-confidence:  {}   # handled by sorting on confidence, not weight change
+
+# ── Discovery thresholds (commercial candidate identification) ───────────────
+discovery:
+  min_footprint_m2: 250          # below this → treated as domestic, excluded
+  medium_band_max_m2: 700        # 250..700 needs extra commercial evidence
+  clearly_commercial_m2: 700     # >= → accepted as commercial candidate
+  office_min_height_m: 8.0        # tall + medium footprint → office-like (commercial)
+  office_min_area_m2: 400
+  residential_max_height_m: 12.0  # medium building below this in domestic postcode → residential
+  domestic_dense_postcode_dwellings: 15  # domestic EPC dwellings in postcode → "residential" signal
+  uprn_join_tolerance_m: 25.0     # nearest-UPRN spatial match tolerance
+  exclude_descriptive_terms:      # OS MasterMap descriptiveTerm values that are never PV leads
+    - "Electricity Sub Station"
+    - "Public Convenience"
+    - "Gas Governor"
+    - "Tank"
+    - "Archway"
+    - "Footbridge"
+    - "Signal"
+    - "Bridge"
+    - "Chimney"
+    - "Conveyor"
+    - "Glasshouse"
+
+# ── Technical roof suitability (0-10) ────────────────────────────────────────
+technical:
+  # Component weights within the technical sub-score (sum = 1.0).
+  w_orientation: 0.22
+  w_pitch:       0.18
+  w_usable_area: 0.25
+  w_shading:     0.20
+  w_irradiance:  0.15
+  # Flat commercial roofs are penalised less for orientation (panels are tilted to optimum).
+  flat_roof_orientation_score: 0.85
+  existing_pv_penalty: 0.6        # multiplier applied if existing PV detected (expansion only)
+  heritage_penalty: 0.7           # multiplier if conservation/listed
+  # Confidence: LiDAR-derived = high; footprint+height = medium; footprint-only = low.
+
+# ── Project scale (0-10) — saturating in feasible kWp. ───────────────────────
+project_scale:
+  # log-saturating curve: score = 10 * log(1 + kWp/k0) / log(1 + kref/k0), capped 10.
+  k0_kwp: 30.0                    # curvature: ~where score starts rising steeply
+  kref_kwp: 800.0                 # kWp that maps to ~score 10 (before penalties)
+  size_bands:                     # (label, upper-bound kWp inclusive)
+    - {name: micro,      max_kwp: 30}
+    - {name: small,      max_kwp: 100}
+    - {name: medium,     max_kwp: 250}
+    - {name: large,      max_kwp: 1000}
+    - {name: very_large, max_kwp: 100000000}
+  # Penalty multipliers (applied to the saturating score):
+  penalty_low_usable_share: 0.6   # usable/total roof share < usable_share_floor
+  usable_share_floor: 0.35
+  penalty_fragmented: 0.85        # many small planes
+  penalty_low_confidence: 0.7     # footprint-only / poor match
+  penalty_high_shading: 0.7
+  penalty_existing_pv: 0.5        # saturated roof → expansion only
+  penalty_heritage: 0.8
+  micro_strong_economics_floor_payback_yr: 6.0  # micro sites with payback<this keep mid score
+
+# ── Economics (0-10) ─────────────────────────────────────────────────────────
+economics:
+  # payback (years) → score (piecewise linear, monotonic decreasing)
+  payback_excellent_yr: 5.0       # <= → 10
+  payback_good_yr: 8.0            # 8 → ~7
+  payback_marginal_yr: 12.0       # 12 → ~4
+  payback_poor_yr: 20.0           # >= → ~1
+  # self-consumption bonus (commercial economics hinge on it)
+  self_consumption_bonus_at_0_8: 1.0
+
+# ── Confidence / data-completeness ───────────────────────────────────────────
+confidence:
+  # source → weight contribution to data-completeness (normalised at runtime)
+  source_weights:
+    geometry: 0.30
+    height: 0.10
+    postcode: 0.10
+    uprn: 0.10
+    nondom_epc: 0.20
+    companies_house: 0.10
+    planning: 0.05
+    pvgis: 0.05
+
+# ── QA blocking bounds ───────────────────────────────────────────────────────
+qa:
+  min_distinct_final_scores_top100: 25   # score compression guard
+  min_distinct_project_scale_top100: 15
+  kwp_per_m2_min: 0.083                   # 1/12 m2 per kWp
+  kwp_per_m2_max: 0.20                    # 1/5 m2 per kWp
+  generation_per_kwp_min: 700
+  generation_per_kwp_max: 1150
+  max_roof_to_footprint_ratio: 1.8        # pitched-plane area vs plan footprint
+  domestic_leakage_max_frac: 0.05         # >5% obvious-domestic in top leads → FAIL
+  min_calibration_sample: 30              # below → calibration INCONCLUSIVE (not failed-positive)

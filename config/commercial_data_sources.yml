@@ -1,0 +1,149 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Commercial Solar Lead Pipeline — Data Source Registry
+# Every source the pipeline reads is declared here so readiness, lineage and
+# degraded-mode behaviour are explicit and auditable.
+#
+# confidence_impact: how much this source contributes to a lead's data-completeness
+#   / confidence score (0..1, relative weights, normalised at runtime).
+# required: if true, the pipeline runs in DEGRADED mode (with a missing-data
+#   register entry) when the source is absent — it never silently invents data.
+# ─────────────────────────────────────────────────────────────────────────────
+
+sources:
+
+  os_mastermap_buildings:
+    name: "OS MasterMap Topography + Building Heights (Oxford)"
+    purpose: "Authoritative building footprints, footprint area (m2), eaves/ridge height. Primary geometry source for roof + project-scale agents."
+    licence: "OS / Digimap educational licence (Edina). Geometry not redistributed in outputs; only derived metrics."
+    env_var: "OS_MASTERMAP_BUILDINGS_DB"
+    local_path: "data/db/buildings_oxford.duckdb"
+    table: "buildings"
+    fields_used: [toid, descriptivegroup, descriptiveterm, area_m2, relh2, relhmax, abshmax, easting, northing, lat, lon, wkt]
+    refresh_cadence: "annual (OS MasterMap release)"
+    confidence_impact: 0.30
+    required: true
+    fallback: "OS NGD/Features API (OS_DATA_HUB_API_KEY) if local DB missing; else cannot run — buildings are mandatory."
+
+  ea_lidar:
+    name: "Environment Agency National LiDAR Programme DSM/DTM"
+    purpose: "Roof-plane extraction (pitch, azimuth, shading, usable area) at high confidence. Upgrades roof confidence from footprint-derived to LiDAR-derived."
+    licence: "Open Government Licence v3.0"
+    env_var: "EA_LIDAR_DSM_DIR"
+    local_path: "data/lidar/dsm"
+    fields_used: [dsm_raster, dtm_raster]
+    refresh_cadence: "as EA publishes"
+    confidence_impact: 0.20
+    required: false
+    fallback: "Footprint+height roof model (flat-roof assumption for large commercial; pitched model otherwise). Clearly labelled roof_method=footprint_height, lower confidence. Pre-computed domestic roof planes in oxford_pipeline.duckdb may enrich matched buildings."
+
+  epc_nondomestic:
+    name: "Non-domestic EPC (official gov EPC API)"
+    purpose: "Commercial property identification, floor area, asset/operational rating, building use, MEES relevance, recommendations."
+    licence: "© Crown copyright — EPC Open Data, free API with registration."
+    env_var: "EPC_BEARER_TOKEN"
+    api: "EPC_API (https://epc.opendatacommunities.org/api/v1/non-domestic)"
+    local_path: "data/cache/commercial/epc_nondom"
+    fields_used: [uprn, address, postcode, property-type, floor-area, asset-rating-band, building-emissions, inspection-date, local-authority]
+    refresh_cadence: "quarterly"
+    confidence_impact: 0.20
+    required: false
+    fallback: "Sector/category inferred from footprint geometry only; EPC band, MEES pressure and floor area marked UNKNOWN with caveat. Confidence reduced."
+
+  voa_nondomestic_rates:
+    name: "VOA non-domestic rating list (hereditaments)"
+    purpose: "Commercial property confirmation, hereditament description, rateable value, floor area where present, owner/occupier feasibility."
+    licence: "VOA open data."
+    env_var: "VOA_RATING_LIST_PATH"
+    local_path: "data/voa/voa_nondomestic_oxford.csv"
+    fields_used: [uarn, ba_reference, description, rateable_value, total_area_m2, postcode]
+    refresh_cadence: "as VOA publishes"
+    confidence_impact: 0.10
+    required: false
+    fallback: "Property-category and ownership feasibility inferred from geometry + EPC only. Marked low-confidence. (Note: local voa.duckdb currently holds COUNCIL-TAX (domestic) bands only — not the non-domestic list.)"
+
+  companies_house:
+    name: "Companies House API"
+    purpose: "Occupier/landlord business identity, SIC codes → sector/energy-intensity/ESG, company status & age (decision-feasibility, adoption propensity)."
+    licence: "Companies House free API; lawful reuse of public register. No personal contact scraping."
+    env_var: "COMPANIES_HOUSE_API_KEY"
+    api: "COMPANIES_HOUSE_API (https://api.company-information.service.gov.uk)"
+    local_path: "data/cache/commercial/companies_house"
+    fields_used: [company_number, company_name, sic_codes, company_status, date_of_creation, registered_office_address]
+    refresh_cadence: "on demand (cached 30d)"
+    confidence_impact: 0.07
+    required: false
+    fallback: "Sector inferred from building category only; occupier_name=UNKNOWN, provenance caveat applied. Propensity scored at sector level, low confidence."
+
+  onspd:
+    name: "ONS Postcode Directory (Oxford slice)"
+    purpose: "Postcode ↔ lat/lon, LSOA/MSOA/ward. Reverse-geocode building centroid → nearest postcode unit; local-authority resolution."
+    licence: "Open Government Licence v3.0 / ONS."
+    env_var: "ONSPD_PATH"
+    local_path: "data/onspd/onspd_oxford.parquet"
+    fields_used: [postcode, lsoa_code, msoa_code, ward_code, latitude, longitude]
+    refresh_cadence: "quarterly"
+    confidence_impact: 0.05
+    required: true
+    fallback: "postcodes.io reverse geocode (POSTCODES_API). If both absent, postcode=UNRESOLVED (caveat), lead still located by lat/lon + OS grid ref."
+
+  os_open_uprn:
+    name: "OS Open UPRN (Oxford slice)"
+    purpose: "UPRN assignment to buildings via spatial join (address/lead identity)."
+    licence: "OS Open Data."
+    env_var: "OS_OPEN_UPRN_CSV"
+    local_path: "data/os_uprn/oxford_uprn.csv"
+    fields_used: [UPRN, X_COORDINATE, Y_COORDINATE, LATITUDE, LONGITUDE]
+    refresh_cadence: "monthly"
+    confidence_impact: 0.05
+    required: false
+    fallback: "Building identified by OS TOID + grid ref only; UPRN=UNKNOWN."
+
+  pvgis:
+    name: "PVGIS (JRC) irradiance"
+    purpose: "Site-specific annual specific yield (kWh/kWp) for generation modelling."
+    licence: "EC JRC PVGIS — free, no key."
+    env_var: "PVGIS_API"
+    api: "https://re.jrc.ec.europa.eu/api/v5_2"
+    local_path: "data/cache/commercial/pvgis"
+    fields_used: [E_y, specific_yield]
+    refresh_cadence: "static climatology"
+    confidence_impact: 0.05
+    required: false
+    fallback: "Built-in regional specific-yield table (see commercial_pv_costs.yml: specific_yield_kwh_per_kwp). Clearly labelled modelled, not site-fetched."
+
+  planning_constraints:
+    name: "planning.data.gov.uk — conservation areas & listed buildings"
+    purpose: "Heritage/planning risk flags (conservation area, listed building) for policy & feasibility scoring."
+    licence: "Open Government Licence v3.0."
+    env_var: "PLANNING_DATA_API"
+    api: "https://www.planning.data.gov.uk"
+    local_path: "data/heritage/oxford_heritage_OXF-2026-012.json"
+    fields_used: [conservation-area, listed-building, geometry]
+    refresh_cadence: "as published"
+    confidence_impact: 0.03
+    required: false
+    fallback: "Local heritage JSON if present; else planning risk marked UNKNOWN (caveat) — never assumed clear."
+
+  mcs_installers:
+    name: "MCS certified installer register (companies)"
+    purpose: "Local installer density (market momentum). NOTE: register holds installer COMPANIES, not installation locations — cannot be used as PV-adoption ground truth."
+    licence: "MCS public register."
+    env_var: "MCS_INSTALLERS_CSV"
+    local_path: "data/mcs/oxford_mcs_installers.csv"
+    fields_used: [mcs_id, name, tech]
+    refresh_cadence: "monthly"
+    confidence_impact: 0.02
+    required: false
+    fallback: "Market-momentum scored from peer commercial PV (if ground truth supplied) only; installer density omitted."
+
+  commercial_pv_ground_truth:
+    name: "Known commercial rooftop PV (calibration ground truth)"
+    purpose: "Calibration ONLY — observed commercial PV adoption flags to validate score vs reality. NOT used for scoring."
+    licence: "Depends on source (MCS installation export / FiT / SEG / verified imagery survey)."
+    env_var: "COMMERCIAL_PV_GROUND_TRUTH"
+    local_path: "data/commercial/ground_truth_pv.csv"
+    fields_used: [uprn_or_toid, has_commercial_pv, system_kwp]
+    refresh_cadence: "as available"
+    confidence_impact: 0.0
+    required: false
+    fallback: "Calibration reported as INCONCLUSIVE_NO_GROUNDTRUTH with an explicit QA warning. Correlations are NEVER fabricated."

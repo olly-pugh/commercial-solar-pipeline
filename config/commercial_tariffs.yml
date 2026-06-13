@@ -1,0 +1,31 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Commercial electricity price scenarios (import) and export assumptions.
+# All values are INDICATIVE planning assumptions for lead prioritisation, NOT quotes.
+# Sources: Ofgem non-domestic price trackers, DESNZ Quarterly Energy Prices (QEP)
+# Table 3.4.1 (non-domestic), typical SME/I&C contract ranges 2024-2026.
+# Review date: 2026-06. Update when DESNZ QEP refreshes.
+# ─────────────────────────────────────────────────────────────────────────────
+
+import_price_gbp_per_kwh:
+  # Blended non-domestic unit price (p/kWh → £/kWh). Larger sites usually buy cheaper.
+  conservative: 0.18    # lower prices → weaker savings case (stress test)
+  central:      0.26    # representative SME / mid I&C blended 2025-26
+  high:         0.34    # smaller commercial / volatile-tariff exposure
+
+# Export — commercial sites typically self-consume most generation; export is secondary.
+export_price_gbp_per_kwh:
+  conservative: 0.04
+  central:      0.06    # typical commercial SEG / negotiated export
+  high:         0.10    # strong PPA / favourable export
+
+# Annual electricity price escalation (real), used only if multi-year NPV requested.
+price_escalation_real_pct:
+  conservative: 0.0
+  central:      0.01
+  high:         0.03
+
+# Carbon intensity for avoided-CO2 reporting (kgCO2e per kWh of grid electricity displaced).
+# Source: DESNZ/BEIS Greenhouse gas conversion factors (grid electricity, generation-based).
+grid_carbon_kgco2e_per_kwh: 0.207
+
+scenarios_default: central
